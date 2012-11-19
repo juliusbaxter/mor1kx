@@ -199,12 +199,12 @@ module mor1kx_ctrl_espresso
    reg [OPTION_OPERAND_WIDTH-1:0]    spr_eear;
    
    // Programmable Interrupt Control SPRs
-   reg [31:0]                        spr_picmr;
-   reg [31:0]                        spr_picsr;
+   wire [31:0] 			     spr_picmr;
+   wire [31:0] 			     spr_picsr;
    
    // Tick Timer SPRs
-   reg [31:0]                        spr_ttmr;
-   reg [31:0]                        spr_ttcr;
+   wire [31:0]                        spr_ttmr;
+   wire [31:0]                        spr_ttcr;
 
    reg [OPTION_OPERAND_WIDTH-1:0]    spr_ppc;
    reg [OPTION_OPERAND_WIDTH-1:0]    spr_npc;
@@ -243,8 +243,6 @@ module mor1kx_ctrl_espresso
    wire                              decode_stage_exceptions;
 
    wire                              exception_re;
-
-   wire [31:0]                       irq_unmasked;
 
    wire                              except_ticktimer;
    wire                              except_pic;
@@ -305,6 +303,18 @@ module mor1kx_ctrl_espresso
    wire                              spr_write_access;
    wire                              spr_bus_access;
    reg [OPTION_OPERAND_WIDTH-1:0]    spr_sys_group_read;
+
+   /* Wires from mor1kx_cfgrs module */
+   wire [31:0] 			     spr_vr;
+   wire [31:0] 			     spr_upr;
+   wire [31:0] 			     spr_cpucfgr;
+   wire [31:0] 			     spr_dmmucfgr;
+   wire [31:0] 			     spr_immucfgr;
+   wire [31:0] 			     spr_dccfgr;
+   wire [31:0] 			     spr_iccfgr;
+   wire [31:0] 			     spr_dcfgr;
+   wire [31:0] 			     spr_pccfgr;
+   wire [31:0] 			     spr_fpcsr;
 
    assign b = ctrl_rfb_i;
 
@@ -755,116 +765,44 @@ module mor1kx_ctrl_espresso
      else
        delay_slot_rf_we_done <= rf_we_o & execute_delay_slot;
    
-   
-   wire [31:0] spr_vr;
-   wire [31:0] spr_upr;
-   wire [31:0] spr_cpucfgr;
-   wire [31:0] spr_dmmucfgr;
-   wire [31:0] spr_immucfgr;
-   wire [31:0] spr_dccfgr;
-   wire [31:0] spr_iccfgr;
-   wire [31:0] spr_dcfgr;
-   wire [31:0] spr_pccfgr;
-   wire [31:0] spr_fpcsr;
+   mor1kx_cfgrs
+     #(.FEATURE_PIC			(FEATURE_PIC),
+       .FEATURE_TIMER			(FEATURE_TIMER),
+       .OPTION_PIC_TRIGGER		(OPTION_PIC_TRIGGER),
+       .FEATURE_DSX			(FEATURE_DSX),
+       .FEATURE_FASTCONTEXTS		(FEATURE_FASTCONTEXTS),
+       .FEATURE_OVERFLOW		(FEATURE_OVERFLOW),
+       .FEATURE_DATACACHE		(FEATURE_DATACACHE),
+       .OPTION_DCACHE_BLOCK_WIDTH	(OPTION_DCACHE_BLOCK_WIDTH),
+       .OPTION_DCACHE_SET_WIDTH		(OPTION_DCACHE_SET_WIDTH),
+       .OPTION_DCACHE_WAYS		(OPTION_DCACHE_WAYS),
+       .FEATURE_DMMU			(FEATURE_DMMU),
+       .FEATURE_INSTRUCTIONCACHE	(FEATURE_INSTRUCTIONCACHE),
+       .OPTION_ICACHE_BLOCK_WIDTH	(OPTION_ICACHE_BLOCK_WIDTH),
+       .OPTION_ICACHE_SET_WIDTH		(OPTION_ICACHE_SET_WIDTH),
+       .OPTION_ICACHE_WAYS		(OPTION_ICACHE_WAYS),
+       .FEATURE_IMMU			(FEATURE_IMMU),
+       .FEATURE_DEBUGUNIT		(FEATURE_DEBUGUNIT),
+       .FEATURE_PERFCOUNTERS		(FEATURE_PERFCOUNTERS),
+       .FEATURE_MAC			(FEATURE_MAC),
+       .FEATURE_SYSCALL			(FEATURE_SYSCALL),
+       .FEATURE_TRAP			(FEATURE_TRAP),
+       .FEATURE_RANGE			(FEATURE_RANGE)
+       )
+   mor1kx_cfgrs
+     (/*AUTOINST*/
+      // Outputs
+      .spr_vr				(spr_vr[31:0]),
+      .spr_upr				(spr_upr[31:0]),
+      .spr_cpucfgr			(spr_cpucfgr[31:0]),
+      .spr_dmmucfgr			(spr_dmmucfgr[31:0]),
+      .spr_immucfgr			(spr_immucfgr[31:0]),
+      .spr_dccfgr			(spr_dccfgr[31:0]),
+      .spr_iccfgr			(spr_iccfgr[31:0]),
+      .spr_dcfgr			(spr_dcfgr[31:0]),
+      .spr_pccfgr			(spr_pccfgr[31:0]),
+      .spr_fpcsr			(spr_fpcsr[31:0]));
 
-   assign spr_vr[`OR1K_SPR_VR_REV] = 0;
-   assign spr_vr[`OR1K_SPR_VR_RESERVED] = 0;
-   assign spr_vr[`OR1K_SPR_VR_CFG] = 0;
-   assign spr_vr[`OR1K_SPR_VR_VER] = 0;
-   
-   assign spr_upr[`OR1K_SPR_UPR_UP] = 1;
-   assign spr_upr[`OR1K_SPR_UPR_DCP] = (FEATURE_DATACACHE!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_ICP] = (FEATURE_INSTRUCTIONCACHE!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_DMP] = (FEATURE_DMMU!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_IMP] = (FEATURE_IMMU!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_MP] = (FEATURE_MAC!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_DUP] = (FEATURE_DEBUGUNIT!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_PCUP] = (FEATURE_PERFCOUNTERS!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_PICP] = (FEATURE_PIC!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_PMP] = (FEATURE_PMU!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_TTP] = (FEATURE_TIMER!="NONE");
-   assign spr_upr[`OR1K_SPR_UPR_RESERVED] = 0;
-   assign spr_upr[`OR1K_SPR_UPR_CUP] = 0;
-
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_NSGF] = 0;
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_CFG] = 0;
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_OB32S] = 1;
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_OB64S] = 0;
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_OF32S] = 0;
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_OF64S] = 0;
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_OV64S] = 0;
-   assign spr_cpucfgr[`OR1K_SPR_CPUCFGR_RESERVED] = 0;
-
-   assign spr_dmmucfgr = 0;
-   assign spr_immucfgr = 0;
-
-   /* Data Cache Configuration register */
-   /* Reserved */
-   assign spr_dccfgr[31:15] = 0;
-   /* Cache Block Write-Back Register Implemented */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_CBWBRI] = 0;
-   /* Cache Block Flush Register Implemented */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_CBFRI] = (FEATURE_DATACACHE!="NONE");
-   /* Cache Block Lock Register Implemented */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_CBLRI] = 0;
-   /* Cache Block Prefetch Register Implemented */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_CBPRI] = 0;
-   /* Cache Block Invalidate Register Implemented */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_CBIRI] = (FEATURE_DATACACHE!="NONE");
-   /* Cache Control Register Implemented */
-   assign spr_iccfgr[`OR1K_SPR_DCCFGR_CCRI] = 0;
-   /* Cache Write Strategy (0 = write-through, 1 = write-back) */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_CWS] = 0;
-   /* Cache Block Size (0 = 16 bytes, 1 = 32 bytes) */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_CBS] = (FEATURE_DATACACHE!="NONE") ?
-                                             (OPTION_DCACHE_BLOCK_WIDTH == 5 ? 1 : 0) :  0;
-  /* Number of Cache Sets */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_NCS] = (FEATURE_DATACACHE!="NONE") ?
-                                             OPTION_DCACHE_SET_WIDTH : 0;
-   /* Number of Cache Ways */
-   assign spr_dccfgr[`OR1K_SPR_DCCFGR_NCW] = (FEATURE_DATACACHE!="NONE") ?
-                                             (OPTION_DCACHE_WAYS == 1) ? 3'd0 :
-                                             (OPTION_DCACHE_WAYS == 2) ? 3'd1 :
-                                             (OPTION_DCACHE_WAYS == 4) ? 3'd2 :
-                                             (OPTION_DCACHE_WAYS == 8) ? 3'd3 :
-                                             (OPTION_DCACHE_WAYS == 16) ? 3'd4 :
-                                             (OPTION_DCACHE_WAYS == 32) ? 3'd5 :
-                                             3'd0 : 3'd0;
-
-   /* Instruction Cache Configuration register */
-   /* Reserved */
-   assign spr_iccfgr[31:13] = 0;
-   assign spr_iccfgr[8] = 0;
-   /* Cache Block Lock Register Implemented */
-   assign spr_iccfgr[`OR1K_SPR_ICCFGR_CBLRI] = 0;
-   /* Cache Block Prefetch Register Implemented */
-   assign spr_iccfgr[`OR1K_SPR_ICCFGR_CBPRI] = 0;
-   /* Cache Block Invalidate Register Implemented */
-   assign spr_iccfgr[`OR1K_SPR_ICCFGR_CBIRI] = (FEATURE_INSTRUCTIONCACHE!="NONE");
-   /* Cache Control Register Implemented */
-   assign spr_iccfgr[`OR1K_SPR_ICCFGR_CCRI] = 0;
-   /* Cache Block Size (0 = 16 bytes, 1 = 32 bytes) */
-   assign spr_iccfgr[`OR1K_SPR_ICCFGR_CBS] = (FEATURE_INSTRUCTIONCACHE!="NONE") ?
-                                             (OPTION_ICACHE_BLOCK_WIDTH == 5 ? 1 : 0) :  0;
-  /* Number of Cache Sets */
-   assign spr_iccfgr[`OR1K_SPR_ICCFGR_NCS] = (FEATURE_INSTRUCTIONCACHE!="NONE") ?
-                                             OPTION_ICACHE_SET_WIDTH : 0;
-   /* Number of Cache Ways */
-   assign spr_iccfgr[`OR1K_SPR_ICCFGR_NCW] = (FEATURE_INSTRUCTIONCACHE!="NONE") ?
-                                             (OPTION_ICACHE_WAYS == 1) ? 3'd0 :
-                                             (OPTION_ICACHE_WAYS == 2) ? 3'd1 :
-                                             (OPTION_ICACHE_WAYS == 4) ? 3'd2 :
-                                             (OPTION_ICACHE_WAYS == 8) ? 3'd3 :
-                                             (OPTION_ICACHE_WAYS == 16) ? 3'd4 :
-                                             (OPTION_ICACHE_WAYS == 32) ? 3'd5 :
-                                             3'd0 : 3'd0;
-   
-
-   assign spr_dcfgr = 0;
-   assign spr_pccfgr = 0;   
-   assign spr_fpcsr = 0;
-
-   
    // System group (0) SPR data out
    always @*
      case(spr_addr)
@@ -927,70 +865,35 @@ module mor1kx_ctrl_espresso
    
    // PIC SPR control
    generate
-      genvar   irqline;
       if (FEATURE_PIC !="NONE") begin : pic
-         
-         if (OPTION_PIC_TRIGGER=="EDGE") begin
-            for(irqline=0;irqline<32;irqline=irqline+1)
-              begin: picgenerate
-                 // PIC status register
-                 always @(posedge clk `OR_ASYNC_RST)
-                   if (rst)
-                     spr_picsr[irqline] <= 0;
-                   // Clear
-                   else if (spr_we & spr_addr==`OR1K_SPR_PICSR_ADDR)
-                     spr_picsr[irqline] <= spr_write_dat[irqline] ? 0 : 
-                                              spr_picsr[irqline];
-                   // Set
-                   else if (!spr_picsr[irqline] & irq_unmasked[irqline])
-                     spr_picsr[irqline] <= 1;
-              end // block: picgenerate
-            
-         end // if (OPTION_PIC_TRIGGER=="EDGE")
-         else if (OPTION_PIC_TRIGGER=="LEVEL") begin
-            for(irqline=0;irqline<32;irqline=irqline+1)
-              begin: picsrlevelgenerate
-                 
-                 // PIC status register
-                 always @(posedge clk `OR_ASYNC_RST)
-                   spr_picsr[irqline] <= irq_unmasked[irqline];
-              end
-            
-         end // if (OPTION_PIC_TRIGGER=="LEVEL")
-         else if (OPTION_PIC_TRIGGER=="LATCHED_LEVEL") begin
-            for(irqline=0;irqline<32;irqline=irqline+1)
-              begin: piclatchedlevelgenerate
-                 // PIC status register
-                 always @(posedge clk `OR_ASYNC_RST)
-                   if (rst)
-                     spr_picsr[irqline] <= 0;
-                   else if (spr_we & spr_addr==`OR1K_SPR_PICSR_ADDR)
-                     spr_picsr[irqline] <= irq_unmasked[irqline] | 
-                                              spr_write_dat[irqline];
-                   else 
-                     spr_picsr[irqline] <= spr_picsr[irqline] | 
-                                           irq_unmasked[irqline];
-              end // block: picgenerate
-            
-         end // if (OPTION_PIC_TRIGGER=="EDGE")  
-         else begin
-            initial begin
-               $display("Error - invalid PIC level detection option %s",
-                        OPTION_PIC_TRIGGER);
-               $finish;
-            end
-         end // else: !if(OPTION_PIC_TRIGGER=="LEVEL")
 
-         // PIC (un)mask register
-         always @(posedge clk `OR_ASYNC_RST)
-           if (rst)
-             spr_picmr <= 0;
-           else if (spr_we & spr_addr==`OR1K_SPR_PICMR_ADDR)
-             spr_picmr <= spr_write_dat;
-         
-         
-         // Bottom two IRQs permanently unmasked
-         assign irq_unmasked = {spr_picmr[31:2],2'b11} & irq_i;
+	 /* mor1kx_pic AUTO_TEMPLATE (
+	  .spr_picsr_o		(spr_picsr),
+	  .spr_picmr_o		(spr_picmr),
+	  .spr_bus_ack		(spr_access_ack[9]),
+	  .spr_dat_o		(spr_internal_read_dat[9]),
+	  // Inputs
+	  .spr_we_i		(spr_we),
+	  .spr_addr_i		(spr_addr),
+	  .spr_dat_i		(spr_write_dat),
+	  );*/
+	 mor1kx_pic
+	  #(.OPTION_PIC_TRIGGER(OPTION_PIC_TRIGGER))
+	 mor1kx_pic
+	   (/*AUTOINST*/
+	    // Outputs
+	    .spr_picmr_o		(spr_picmr),		 // Templated
+	    .spr_picsr_o		(spr_picsr),		 // Templated
+	    .spr_bus_ack		(spr_access_ack[9]),	 // Templated
+	    .spr_dat_o			(spr_internal_read_dat[9]), // Templated
+	    // Inputs
+	    .clk			(clk),
+	    .rst			(rst),
+	    .irq_i			(irq_i[31:0]),
+	    .spr_we_i			(spr_we),		 // Templated
+	    .spr_addr_i			(spr_addr),		 // Templated
+	    .spr_dat_i			(spr_write_dat));	 // Templated
+
          assign except_pic_nonsrmasked = (|spr_picsr) &  
                              !op_mtspr & 
                              // Stops back-to-back branch addresses going to 
@@ -998,93 +901,66 @@ module mor1kx_ctrl_espresso
                              !ctrl_branch_occur &
                              // Stops issues with PC when branching
                              !execute_delay_slot;
+         
          assign except_pic = spr_sr[`OR1K_SPR_SR_IEE] & except_pic_nonsrmasked &
                              !doing_rfe;
-
-         /* always single cycle access */
-         assign spr_access_ack[9] = 1;
-         assign spr_internal_read_dat[9] =  (spr_addr==`OR1K_SPR_PICSR_ADDR) ?
-                                            spr_picsr :
-                                            (spr_addr==`OR1K_SPR_PICMR_ADDR) ?
-                                            spr_picmr : 0;
-         
       end
       else begin
-         assign except_pic = 0;
-         
-         always @(posedge clk) begin
-            spr_picsr = 0;
-            spr_picmr = 0;
-         end
-
-         assign spr_access_ack[9] = 0;
-         
+	 assign except_pic_nonsrmasked = 0;
+	 assign except_pic = 0;
+	 assign spr_picsr = 0;
+	 assign spr_picmr = 0;
+	 assign spr_access_ack[9] = 0;
+	 assign spr_internal_read_dat[9] = 0;
       end // else: !if(FEATURE_PIC !="NONE")
    endgenerate
    
    
    generate
       if (FEATURE_TIMER!="NONE") begin : tt
-         
-         // Timer SPR control   
-         always @(posedge clk `OR_ASYNC_RST)
-           if (rst)
-             spr_ttmr <= 0;
-           else if (spr_we && spr_addr==`OR1K_SPR_TTMR_ADDR)
-             spr_ttmr <= spr_write_dat[31:0];
-           else if ((spr_ttmr[27:0]==spr_ttcr[27:0]) & spr_ttmr[29])
-             spr_ttmr[28] <= 1; // Generate interrupt
-         
-         always @(posedge clk `OR_ASYNC_RST)
-           if (rst)
-             spr_ttcr <= 0;
-           else if (spr_we && spr_addr==`OR1K_SPR_TTCR_ADDR)
-             spr_ttcr <= spr_write_dat[31:0];
-           else if (spr_ttmr[27:0]==spr_ttcr[27:0])
-             begin
-                case(spr_ttmr[31:30])
-                  2'b01: // Restart
-                    spr_ttcr <= 0;
-                  2'b11: // Continuous
-                    spr_ttcr <= spr_ttcr + 1;
-                  default: // Stop, or disabled
-                    spr_ttcr <= spr_ttcr;
-                endcase // case (spr_ttmr[31:30])
-             end // if (spr_ttmr[27:0]==spr_ttcr[27:0])
-           else if (|spr_ttmr[31:30])
-             spr_ttcr <= spr_ttcr + 1;
+	 
+	 /* mor1kx_ticktimer AUTO_TEMPLATE (
+	  .spr_ttmr_o		(spr_ttmr),
+	  .spr_ttcr_o		(spr_ttcr),
+	  .spr_bus_ack		(spr_access_ack[10]),
+	  .spr_dat_o		(spr_internal_read_dat[10]),
+	  // Inputs
+	  .spr_we_i		(spr_we),
+	  .spr_addr_i		(spr_addr),
+	  .spr_dat_i		(spr_write_dat),
+	  );*/
+	 mor1kx_ticktimer mor1kx_ticktimer
+			 (/*AUTOINST*/
+			  // Outputs
+			  .spr_ttmr_o		(spr_ttmr),	 // Templated
+			  .spr_ttcr_o		(spr_ttcr),	 // Templated
+			  .spr_bus_ack		(spr_access_ack[10]), // Templated
+			  .spr_dat_o		(spr_internal_read_dat[10]), // Templated
+			  // Inputs
+			  .clk			(clk),
+			  .rst			(rst),
+			  .spr_we_i		(spr_we),	 // Templated
+			  .spr_addr_i		(spr_addr),	 // Templated
+			  .spr_dat_i		(spr_write_dat)); // Templated
 
          assign except_ticktimer_nonsrmasked = spr_ttmr[28] &
                                    !op_mtspr & 
                                    // Stops back-to-back branch addresses to 
-                                   // fetch  stage.
+                                   // fetch stage.
                                    !ctrl_branch_occur &
                                    // Stops issues with PC when branching
                                    !execute_delay_slot;
          
          assign except_ticktimer = except_ticktimer_nonsrmasked & 
                                    spr_sr[`OR1K_SPR_SR_TEE] & !doing_rfe;
-
-         /* SPR bus reads */
-         /* always single cycle access */
-         assign spr_access_ack[10] = 1;
-         assign spr_internal_read_dat[10] =  (spr_addr==`OR1K_SPR_TTCR_ADDR) ?
-                                             spr_ttcr :
-                                             (spr_addr==`OR1K_SPR_TTMR_ADDR) ?
-                                             spr_ttmr : 0;
-         
       end // if (FEATURE_TIMER!="NONE")
       else begin
-         
-         assign except_ticktimer = 0;
-         
-         always @(posedge clk) begin
-            spr_ttmr <= 0;
-            spr_ttcr <= 0;
-         end
-
-         assign spr_access_ack[10] = 0;
-         
+	 assign except_ticktimer_nonsrmasked = 0;
+	 assign except_ticktimer = 0;
+	 assign spr_ttmr = 0;
+	 assign spr_ttcr = 0;
+	 assign spr_access_ack[10] = 0;
+	 assign spr_internal_read_dat[10] = 0;
       end // else: !if(FEATURE_TIMER!="NONE")
    endgenerate
 
@@ -1466,4 +1342,5 @@ module mor1kx_ctrl_espresso
    
    
    
-endmodule // mor1kx_ctrl
+endmodule // mor1kx_ctrl_espresso
+
